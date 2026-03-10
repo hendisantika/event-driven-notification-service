@@ -13,12 +13,16 @@ package id.my.hendisantika.notificationservice.worker.service;
  */
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import id.my.hendisantika.notificationservice.shared.dto.NotificationState;
 import id.my.hendisantika.notificationservice.worker.repository.DeadLetterNotificationRepository;
 import id.my.hendisantika.notificationservice.worker.repository.NotificationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
 
 /**
  * Handles notification delivery, state transitions, and DLQ on permanent failure.
@@ -45,4 +49,47 @@ public class NotificationDeliveryService {
         this.objectMapper = objectMapper;
         this.maxRetries = maxRetries;
     }
+
+    @Transactional
+    public void process(Long notificationId) {
+        var notificationOpt = notificationRepository.findByIdForUpdate(notificationId);
+        if (notificationOpt.isEmpty()) {
+            logger.warn("Notification not found: id={}", notificationId);
+            return;
+        }
+
+        var notification = notificationOpt.get();
+
+        // Skip if already terminal
+        if (notification.getState() == NotificationState.SENT || notification.getState() == NotificationState.FAILED) {
+            logger.info("Notification already terminal: id={}, state={}", notificationId, notification.getState());
+            return;
+        }
+
+        // Transition to PROCESSING
+        notification.setState(NotificationState.PROCESSING);
+        notificationRepository.save(notification);
+
+        try {
+            Map<String, Object> payload = notification.getPayload();
+            mockProvider.send(notification.getChannel(), payload);
+
+            // Success
+            notification.setState(NotificationState.SENT);
+            notification.setLastError(null);
+            notificationRepository.save(notification);
+            logger.info("Notification sent: id={}, userId={}, channel={}", notificationId, notification.getUserId(), notification.getChannel());
+
+        } catch (PermanentDeliveryException e) {
+            handlePermanentFailure(notification, e);
+
+        } catch (TransientDeliveryException e) {
+            handleTransientFailure(notification, e);
+
+        } catch (Exception e) {
+            // Treat unknown as transient
+            handleTransientFailure(notification, new TransientDeliveryException(e.getMessage(), e));
+        }
+    }
+
 }
