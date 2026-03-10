@@ -16,7 +16,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.notificationservice</groupId>
+            <groupId>id.my.hendisantika</groupId>
             <artifactId>shared</artifactId>
             <version>${project.version}</version>
         </dependency>
