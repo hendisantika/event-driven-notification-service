@@ -107,4 +107,13 @@ public class NotificationService {
         int count = Integer.parseInt(value.toString());
         return count < rateLimitPerUserPerMinute;
     }
+
+    private void incrementRateLimit(String userId) {
+        String key = RATE_LIMIT_KEY_PREFIX + userId;
+        var ops = redisStreamTemplate.opsForValue();
+        Long count = ops.increment(key);
+        if (count != null && count == 1) {
+            redisStreamTemplate.expire(key, RATE_LIMIT_WINDOW);
+        }
+    }
 }
