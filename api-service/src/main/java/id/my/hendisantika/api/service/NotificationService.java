@@ -99,4 +99,12 @@ public class NotificationService {
         logger.info("Notification accepted: id={}, userId={}, channel={}", notification.getId(), notification.getUserId(), notification.getChannel());
         return new SendNotificationResponse(notification.getId(), NotificationState.PENDING.name());
     }
+
+    private boolean checkRateLimit(String userId) {
+        String key = RATE_LIMIT_KEY_PREFIX + userId;
+        var value = redisStreamTemplate.opsForValue().get(key);
+        if (value == null) return true;
+        int count = Integer.parseInt(value.toString());
+        return count < rateLimitPerUserPerMinute;
+    }
 }
