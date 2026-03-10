@@ -1,4 +1,4 @@
-package id.my.hendisantika.notificationservice.shared;
+package id.my.hendisantika.notificationservice.shared.dto;
 
 /**
  * Created by IntelliJ IDEA.
