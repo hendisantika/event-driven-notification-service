@@ -14,6 +14,7 @@ package id.my.hendisantika.notificationservice.worker.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import id.my.hendisantika.notificationservice.shared.dto.NotificationState;
+import id.my.hendisantika.notificationservice.shared.entity.DeadLetterNotification;
 import id.my.hendisantika.notificationservice.shared.entity.Notification;
 import id.my.hendisantika.notificationservice.worker.repository.DeadLetterNotificationRepository;
 import id.my.hendisantika.notificationservice.worker.repository.NotificationRepository;
@@ -118,5 +119,17 @@ public class NotificationDeliveryService {
             notificationRepository.save(notification);
             logger.info("Transient failure, will retry: id={}, retryCount={}/{}", notification.getId(), retryCount, maxRetries);
         }
+    }
+
+    private void moveToDeadLetter(Notification notification, String failureReason) {
+        var dlq = new DeadLetterNotification();
+        dlq.setNotificationId(notification.getId());
+        dlq.setUserId(notification.getUserId());
+        dlq.setChannel(notification.getChannel());
+        dlq.setPayload(notification.getPayload());
+        dlq.setFailureReason(failureReason);
+        dlq.setRetryCount(notification.getRetryCount());
+        deadLetterRepository.save(dlq);
+        logger.info("Moved to DLQ: notificationId={}, reason={}", notification.getId(), failureReason);
     }
 }
