@@ -72,4 +72,25 @@ public class NotificationStreamConsumer implements CommandLineRunner {
             }
         }
     }
+
+    private void startConsumptionLoop() {
+        logger.info("Starting consumption loop: stream={}, group={}, consumer={}", streamName, consumerGroup, consumerName);
+
+        while (true) {
+            try {
+                consumeNewMessages();
+                claimPendingMessages();
+            } catch (Exception e) {
+                if (e.getMessage() != null && e.getMessage().contains("timed out")) {
+                    // Normal idle polling – do nothing or log DEBUG
+                    logger.debug("Redis stream poll timeout (idle)");
+                } else {
+                    logger.error("Redis stream error", e);
+                }
+            }
+
+            sleep(Duration.ofMillis(500));
+        }
+    }
+
 }
