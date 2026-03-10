@@ -179,4 +179,9 @@ public class NotificationStreamConsumer implements CommandLineRunner {
             // Don't ACK - message stays in pending for retry via claimPendingMessages
         }
     }
+
+    private String getString(Map<Object, Object> map, String key) {
+        Object v = map.get(key);
+        return v != null ? v.toString() : null;
+    }
 }
