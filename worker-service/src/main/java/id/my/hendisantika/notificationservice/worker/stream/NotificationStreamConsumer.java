@@ -54,4 +54,9 @@ public class NotificationStreamConsumer implements CommandLineRunner {
         this.redisTemplate = redisTemplate;
     }
 
+    @Override
+    public void run(String... args) {
+        ensureStreamAndGroup();
+        startConsumptionLoop();
+    }
 }
