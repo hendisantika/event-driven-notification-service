@@ -59,4 +59,17 @@ public class NotificationStreamConsumer implements CommandLineRunner {
         ensureStreamAndGroup();
         startConsumptionLoop();
     }
+
+    private void ensureStreamAndGroup() {
+        try {
+            redisTemplate.opsForStream().createGroup(streamName, ReadOffset.from("0-0"), consumerGroup);
+            logger.info("Created consumer group {} for stream {}", consumerGroup, streamName);
+        } catch (Exception e) {
+            if (e.getMessage() != null && e.getMessage().contains("BUSYGROUP")) {
+                logger.info("Consumer group {} already exists for stream {}", consumerGroup, streamName);
+            } else {
+                logger.info("Stream/group setup: {}", e.getMessage());
+            }
+        }
+    }
 }
