@@ -102,4 +102,21 @@ public class NotificationDeliveryService {
 
         moveToDeadLetter(notification, e.getMessage());
     }
+
+    private void handleTransientFailure(Notification notification, TransientDeliveryException e) {
+        int retryCount = notification.getRetryCount() + 1;
+        notification.setRetryCount(retryCount);
+        notification.setLastError(e.getMessage());
+
+        if (retryCount >= maxRetries) {
+            logger.warn("Max retries exceeded: id={}, retryCount={}", notification.getId(), retryCount);
+            notification.setState(NotificationState.FAILED);
+            notificationRepository.save(notification);
+            moveToDeadLetter(notification, "Max retries exceeded: " + e.getMessage());
+        } else {
+            notification.setState(NotificationState.RETRYING);
+            notificationRepository.save(notification);
+            logger.info("Transient failure, will retry: id={}, retryCount={}/{}", notification.getId(), retryCount, maxRetries);
+        }
+    }
 }
