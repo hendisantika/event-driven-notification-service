@@ -14,6 +14,7 @@ package id.my.hendisantika.notificationservice.worker.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import id.my.hendisantika.notificationservice.shared.dto.NotificationState;
+import id.my.hendisantika.notificationservice.shared.entity.Notification;
 import id.my.hendisantika.notificationservice.worker.repository.DeadLetterNotificationRepository;
 import id.my.hendisantika.notificationservice.worker.repository.NotificationRepository;
 import org.slf4j.Logger;
@@ -92,4 +93,13 @@ public class NotificationDeliveryService {
         }
     }
 
+    private void handlePermanentFailure(Notification notification, PermanentDeliveryException e) {
+        logger.warn("Permanent delivery failure: id={}, error={}", notification.getId(), e.getMessage());
+
+        notification.setState(NotificationState.FAILED);
+        notification.setLastError(e.getMessage());
+        notificationRepository.save(notification);
+
+        moveToDeadLetter(notification, e.getMessage());
+    }
 }
