@@ -22,6 +22,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 
+import static java.lang.Thread.sleep;
+
 /**
  * Consumes notifications from Redis Stream using consumer group.
  * Creates stream and group on startup if missing.
@@ -108,6 +110,35 @@ public class NotificationStreamConsumer implements CommandLineRunner {
             }
         } catch (Exception e) {
             logger.warn("Error reading stream: {}", e.getMessage());
+        }
+    }
+
+    private void claimPendingMessages() {
+        try {
+            var pending = redisTemplate.opsForStream().pending(streamName, consumerGroup, org.springframework.data.domain.Range.unbounded(), BATCH_SIZE);
+            if (pending == null || pending.isEmpty()) return;
+
+            for (var entry : pending) {
+                String messageId = entry.getIdAsString();
+                long idleTime = entry.getElapsedTimeSinceLastDelivery().toMillis();
+
+                // Exponential backoff: 1s, 2s, 4s, 8s, 16s (idle time must exceed backoff)
+                long minIdleMs = 1000L * (1L << Math.min(entry.getTotalDeliveryCount(), 5));
+                if (idleTime < minIdleMs) continue;
+
+                try {
+                    var claimed = redisTemplate.opsForStream().claim(streamName, consumerGroup, consumerName, Duration.ofMillis(minIdleMs), RecordId.of(messageId));
+                    if (claimed != null && !claimed.isEmpty()) {
+                        for (var record : claimed) {
+                            processRecord(record);
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.warn("Error claiming pending message {}: {}", messageId, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("Error checking pending: {}", e.getMessage());
         }
     }
 }
