@@ -13,6 +13,7 @@ package id.my.hendisantika.api.controller;
  */
 
 import id.my.hendisantika.api.service.NotificationService;
+import id.my.hendisantika.api.service.RateLimitExceededException;
 import id.my.hendisantika.notificationservice.shared.domain.SendNotificationRequest;
 import id.my.hendisantika.notificationservice.shared.domain.SendNotificationResponse;
 import jakarta.validation.Valid;
@@ -50,6 +51,16 @@ public class NotificationController {
         }
         SendNotificationResponse response = notificationService.send(request);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ApiError> handleRateLimit(RateLimitExceededException ex) {
+        log.warn("Rate limit exceeded: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(new ApiError("RATE_LIMIT_EXCEEDED", ex.getMessage()));
+    }
+
+    public record ApiError(String code, String message) {
     }
 
 }
