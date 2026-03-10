@@ -93,4 +93,21 @@ public class NotificationStreamConsumer implements CommandLineRunner {
         }
     }
 
+    private void consumeNewMessages() {
+        try {
+            var streamOffset = StreamOffset.create(streamName, ReadOffset.lastConsumed());
+            var consumer = Consumer.from(consumerGroup, consumerName);
+            var readRequest = StreamReadOptions.empty().count(BATCH_SIZE).block(POLL_TIMEOUT);
+
+            var records = redisTemplate.opsForStream().read(consumer, readRequest, streamOffset);
+
+            if (records != null && !records.isEmpty()) {
+                for (var record : records) {
+                    processRecord(record);
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("Error reading stream: {}", e.getMessage());
+        }
+    }
 }
