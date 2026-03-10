@@ -12,6 +12,7 @@ package id.my.hendisantika.notificationservice.worker.service;
  * To change this template use File | Settings | File Templates.
  */
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import id.my.hendisantika.notificationservice.shared.dto.NotificationState;
 import id.my.hendisantika.notificationservice.shared.entity.DeadLetterNotification;
@@ -131,5 +132,15 @@ public class NotificationDeliveryService {
         dlq.setRetryCount(notification.getRetryCount());
         deadLetterRepository.save(dlq);
         logger.info("Moved to DLQ: notificationId={}, reason={}", notification.getId(), failureReason);
+    }
+
+    public Map<String, Object> parsePayload(String payloadJson) {
+        try {
+            return objectMapper.readValue(payloadJson, new TypeReference<Map<String, Object>>() {
+            });
+        } catch (Exception e) {
+            logger.error("Failed to parse payload: {}", payloadJson, e);
+            throw new PermanentDeliveryException("Invalid payload JSON", e);
+        }
     }
 }
