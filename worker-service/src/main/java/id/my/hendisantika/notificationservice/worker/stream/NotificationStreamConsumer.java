@@ -17,10 +17,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.Map;
 
 import static java.lang.Thread.sleep;
 
@@ -139,6 +141,42 @@ public class NotificationStreamConsumer implements CommandLineRunner {
             }
         } catch (Exception e) {
             logger.warn("Error checking pending: {}", e.getMessage());
+        }
+    }
+
+    private void processRecord(org.springframework.data.redis.connection.stream.MapRecord<String, Object, Object> record) {
+        String messageId = record.getId().getValue();
+        @SuppressWarnings("unchecked")
+        Map<Object, Object> value = record.getValue();
+
+        String notificationIdStr = getString(value, "notificationId");
+        if (notificationIdStr == null) {
+            logger.warn("Missing notificationId in message: {}", messageId);
+            redisTemplate.opsForStream().acknowledge(streamName, consumerGroup, messageId);
+            return;
+        }
+
+        long notificationId;
+        try {
+            notificationId = Long.parseLong(notificationIdStr);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid notificationId in message: {}", notificationIdStr);
+            redisTemplate.opsForStream().acknowledge(streamName, consumerGroup, messageId);
+            return;
+        }
+
+        logger.info("Processing message: messageId={}, notificationId={}", messageId, notificationId);
+
+        try {
+            deliveryService.process(notificationId);
+
+            // ACK on success; on failure, delivery service handles state - we still ACK to remove from stream
+            // (DLQ is already written; keeping in stream would cause infinite reprocessing)
+            redisTemplate.opsForStream().acknowledge(streamName, consumerGroup, messageId);
+
+        } catch (Exception e) {
+            logger.error("Error processing notification {}: {}", notificationId, e.getMessage());
+            // Don't ACK - message stays in pending for retry via claimPendingMessages
         }
     }
 }
