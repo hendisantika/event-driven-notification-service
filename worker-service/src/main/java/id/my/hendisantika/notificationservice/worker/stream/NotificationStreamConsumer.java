@@ -12,6 +12,7 @@ package id.my.hendisantika.notificationservice.worker.stream;
  * To change this template use File | Settings | File Templates.
  */
 
+import id.my.hendisantika.notificationservice.worker.service.NotificationDeliveryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
