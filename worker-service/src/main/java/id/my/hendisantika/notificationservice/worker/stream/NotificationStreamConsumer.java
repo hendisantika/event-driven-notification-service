@@ -17,14 +17,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.connection.stream.RecordId;
+import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.Map;
-
-import static java.lang.Thread.sleep;
 
 /**
  * Consumes notifications from Redis Stream using consumer group.
@@ -183,5 +181,14 @@ public class NotificationStreamConsumer implements CommandLineRunner {
     private String getString(Map<Object, Object> map, String key) {
         Object v = map.get(key);
         return v != null ? v.toString() : null;
+    }
+
+    private void sleep(Duration d) {
+        try {
+            Thread.sleep(d.toMillis());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
     }
 }
