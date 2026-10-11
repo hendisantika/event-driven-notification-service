@@ -1,6 +1,6 @@
 # Build stage
+FROM maven:3.9-eclipse-temurin-25-alpine AS build
 LABEL authors="hendisantika"
-FROM eclipse-temurin:25-alpine-3.23 AS build
 WORKDIR /app
 
 # Copy full project for Maven multi-module build (parent pom requires all modules)
@@ -10,11 +10,11 @@ COPY api-service/ api-service/
 COPY worker-service/ worker-service/
 
 # Build api-service and its dependencies (shared)
-RUN apt-get update && apt-get install -y --no-install-recommends maven && rm -rf /var/lib/apt/lists/* && \
-    mvn -B package -pl api-service -am -DskipTests
+RUN mvn -B package -pl api-service -am -DskipTests
 
 # Runtime stage
-FROM eclipse-temurin:25-alpine-3.23
+FROM eclipse-temurin:25-jre-alpine-3.23
+LABEL authors="hendisantika"
 WORKDIR /app
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup

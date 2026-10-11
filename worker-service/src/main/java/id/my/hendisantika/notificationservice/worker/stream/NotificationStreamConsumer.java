@@ -17,11 +17,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.stream.*;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 
@@ -34,7 +37,7 @@ import java.util.Map;
 public class NotificationStreamConsumer implements CommandLineRunner {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationStreamConsumer.class);
-    private static final Duration POLL_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration POLL_TIMEOUT = Duration.ofSeconds(2); // must stay below spring.data.redis.timeout
     private static final int BATCH_SIZE = 10;
     private final String streamName;
     private final String consumerGroup;
@@ -65,13 +68,16 @@ public class NotificationStreamConsumer implements CommandLineRunner {
 
     private void ensureStreamAndGroup() {
         try {
-            redisTemplate.opsForStream().createGroup(streamName, ReadOffset.from("0-0"), consumerGroup);
+            // MKSTREAM: create the stream as well if the API has not published anything yet
+            redisTemplate.execute((RedisCallback<String>) connection -> connection.streamCommands()
+                    .xGroupCreate(streamName.getBytes(StandardCharsets.UTF_8), consumerGroup, ReadOffset.from("0-0"), true));
             logger.info("Created consumer group {} for stream {}", consumerGroup, streamName);
         } catch (Exception e) {
-            if (e.getMessage() != null && e.getMessage().contains("BUSYGROUP")) {
+            String message = NestedExceptionUtils.getMostSpecificCause(e).getMessage();
+            if (message != null && message.contains("BUSYGROUP")) {
                 logger.info("Consumer group {} already exists for stream {}", consumerGroup, streamName);
             } else {
-                logger.info("Stream/group setup: {}", e.getMessage());
+                logger.warn("Stream/group setup: {}", message);
             }
         }
     }

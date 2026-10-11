@@ -30,7 +30,7 @@ public class SendNotificationRequest {
     @NotNull(message = "payload is required")
     private Map<String, Object> payload;
 
-    @NotBlank(message = "idempotencyKey is required")
+    // Optional in the body: the Idempotency-Key header takes precedence (checked in the controller)
     @Size(max = 255)
     private String idempotencyKey;
 

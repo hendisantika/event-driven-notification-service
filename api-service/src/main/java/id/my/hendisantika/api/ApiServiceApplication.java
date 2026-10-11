@@ -16,8 +16,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  * Time: 05.57
  * To change this template use File | Settings | File Templates.
  */
-@SpringBootApplication(scanBasePackages = "id.my.hendisantika.notificationservice")
-@EntityScan(basePackages = "id.my.hendisantika.shared.entity")
+@SpringBootApplication(scanBasePackages = "id.my.hendisantika.api")
+@EntityScan(basePackages = "id.my.hendisantika.notificationservice.shared.entity")
 @EnableJpaRepositories(basePackages = "id.my.hendisantika.api.repository")
 public class ApiServiceApplication {
 

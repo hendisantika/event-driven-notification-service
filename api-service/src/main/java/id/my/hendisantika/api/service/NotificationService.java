@@ -1,7 +1,5 @@
 package id.my.hendisantika.api.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import id.my.hendisantika.api.repository.NotificationRepository;
 import id.my.hendisantika.notificationservice.shared.domain.SendNotificationRequest;
 import id.my.hendisantika.notificationservice.shared.domain.SendNotificationResponse;
@@ -15,6 +13,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.util.Map;
@@ -128,7 +128,7 @@ public class NotificationService {
                     "payload", objectMapper.writeValueAsString(notification.getPayload())
             );
             redisStreamTemplate.opsForStream().add(streamName, record);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             logger.error("Failed to serialize payload for stream: notificationId={}", notification.getId(), e);
             throw new RuntimeException("Failed to publish notification event", e);
         }

@@ -1,5 +1,9 @@
 # Event-Driven Notification System
 
+[![CI](https://github.com/hendisantika/event-driven-notification-service/actions/workflows/ci.yml/badge.svg)](https://github.com/hendisantika/event-driven-notification-service/actions/workflows/ci.yml)
+![Java](https://img.shields.io/badge/Java-25-orange)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-brightgreen)
+
 A production-grade, event-driven notification system that guarantees non-blocking APIs, exactly-once delivery, safe
 retries, and dead-letter handling for permanent failures.
 
@@ -197,21 +201,24 @@ UNIQUE (idempotency_key)
 
 ## Tech Stack
 
-- **API & Worker**: Spring Boot 3.x (Java 17)
-- **Queue**: Redis Streams
-- **Database**: PostgreSQL
-- **Build**: Maven
-- **Containerization**: Docker, Docker Compose
+- **Language**: Java 25 (LTS)
+- **API & Worker**: Spring Boot 4.0.x (Spring Web MVC, Spring Data JPA, Spring Data Redis, Actuator)
+- **Queue**: Redis 7 Streams
+- **Database**: PostgreSQL 18, schema managed by Flyway
+- **Build**: Maven 3.9+ (multi-module)
+- **Containerization**: Docker (Eclipse Temurin 25 JRE on Alpine), Docker Compose
+- **CI**: GitHub Actions (`.github/workflows/ci.yml`): builds with Temurin JDK 25 and builds both Docker images
 
 ---
 
 ## Project Structure
 
 ```
-NotificationService/
-├── pom.xml                    # Parent POM
+event-driven-notification-service/
+├── pom.xml                    # Parent POM (java.version = 25)
 ├── shared/                    # Shared domain, entities, DTOs
-│   └── pom.xml
+│   ├── pom.xml
+│   └── src/main/resources/db/migration   # Flyway migrations (applied by both services)
 ├── api-service/               # REST API
 │   ├── pom.xml
 │   ├── Dockerfile
@@ -231,7 +238,7 @@ NotificationService/
 ### Prerequisites
 
 - Docker & Docker Compose
-- (Optional) Java 17, Maven for local development
+- (Optional, for local development) JDK 25 and Maven 3.9+
 
 ### Using Docker Compose
 
@@ -246,9 +253,26 @@ This starts:
 - **API Service** on port 8080
 - **Worker Service** (no exposed port; consumes from Redis)
 
+### Running Locally (without Docker for the apps)
+
+Start only the infrastructure, then run the services with Maven:
+
+```bash
+docker compose up -d postgres redis
+mvn clean install
+
+# in two terminals
+mvn -pl api-service spring-boot:run
+mvn -pl worker-service spring-boot:run
+```
+
+Both services default to `localhost:5432` (PostgreSQL) and `localhost:6379` (Redis). Flyway creates the schema on
+whichever service starts first.
+
 ### Health Checks
 
 - API: `GET http://localhost:8080/actuator/health`
+- Worker: no HTTP port; check it with `docker compose logs -f worker-service`
 - PostgreSQL and Redis are used internally; no separate health HTTP endpoints
 
 ### Send a Notification
@@ -268,7 +292,22 @@ curl -X POST http://localhost:8080/notifications/send \
   }'
 ```
 
-Expected: `202 Accepted` with notification ID.
+Expected: `202 Accepted` with notification ID, for example:
+
+```json
+{"notificationId": 1, "state": "PENDING"}
+```
+
+The idempotency key can be sent as the `Idempotency-Key` header (preferred) or as `idempotencyKey` in the JSON body.
+If neither is present, the API returns `400 Bad Request`. Once a user exceeds the rate limit, it returns
+`429 Too Many Requests`.
+
+The worker picks up the event and moves the notification to `SENT`:
+
+```bash
+docker compose exec postgres psql -U postgres -d notifications \
+  -c "select id, user_id, state, retry_count from notifications;"
+```
 
 ### Idempotency Test
 

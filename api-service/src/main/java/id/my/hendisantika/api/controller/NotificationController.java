@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * REST API for notification acceptance. Returns 202 Accepted immediately; delivery is asynchronous.
@@ -48,6 +49,9 @@ public class NotificationController {
         // Allow idempotency key from header (preferred) or body
         if (headerKey != null && !headerKey.isBlank()) {
             request.setIdempotencyKey(headerKey.trim());
+        }
+        if (request.getIdempotencyKey() == null || request.getIdempotencyKey().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "idempotencyKey is required");
         }
         SendNotificationResponse response = notificationService.send(request);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
